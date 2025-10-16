@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Manager</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #e0f7ff, #b3e5fc);
+      color: #023047;
+      margin: 0;
+      padding: 0 0 100px 0;
+    }
+
+    header {
+      background-color: #1565c0;
+      color: white;
+      text-align: center;
+      padding: 20px;
+      font-size: 1.8em;
+      font-weight: bold;
+      letter-spacing: 1px;
+      position: relative;
+    }
+
+    main {
+      max-width: 800px;
+      margin: 30px auto;
+      background-color: #f0f8ff;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    h2 {
+      color: #0d47a1;
+      border-bottom: 2px solid #64b5f6;
+      padding-bottom: 5px;
+    }
+
+    button {
+      background-color: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 15px;
+      cursor: pointer;
+      margin: 5px;
+      transition: 0.3s;
+    }
+
+    button:hover {
+      background-color: #0d47a1;
+    }
+
+    input {
+      margin: 5px;
+      padding: 8px;
+      border: 1px solid #90caf9;
+      border-radius: 5px;
+    }
+
+    .item-list {
+      background-color: #bbdefb;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    .item {
+      background-color: #e3f2fd;
+      padding: 10px;
+      border-radius: 8px;
+      margin: 5px 0;
+    }
+
+    .sell-section {
+      background-color: #c5cae9;
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+    }
+
+    .stats-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background-color: #1565c0;
+      color: white;
+      text-align: center;
+      padding: 15px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+
+    .highlight {
+      color: #ffeb3b;
+      font-size: 1.2em;
+    }
+
+    #editControls {
+      display: none;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    #lockControls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+
+    .small-btn {
+      background-color: #42a5f5;
+      padding: 6px 10px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span id="mainTitle">Inventory Manager</span>
+    <div id="lockControls">
+      <button onclick="toggleLock()">🔒 Lock / Unlock</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="editControls">
+      <input type="text" id="newTitle" placeholder="Enter new main name">
+      <button onclick="updateTitle()">Update Title</button>
+      <br>
+      <button class="small-btn" onclick="changePassword()">Change Password</button>
+    </div>
+
+    <h2>Add Items</h2>
+    <div id="addItemsSection">
+      <input type="text" id="itemName" placeholder="Item Name">
+      <input type="number" id="itemPrice" placeholder="Price">
+      <input type="number" id="itemQty" placeholder="Quantity">
+      <button onclick="addItem()">Add Item</button>
+      <button id="clearBtn" onclick="clearAll()">Clear All Items</button>
+    </div>
+
+    <h2>Existing Items</h2>
+    <div id="itemList" class="item-list"></div>
+
+    <h2>Sell Items</h2>
+    <div class="sell-section" id="sellSection"></div>
+  </main>
+
+  <div class="stats-bar" id="stats">
+    Total Quantity Sold: <span class="highlight" id="totalQty">0</span> |
+    Total Money Earned: $<span class="highlight" id="totalMoney">0.00</span>
+  </div>
+
+  <script>
+    let items = JSON.parse(localStorage.getItem('btcItems')) || [];
+    let totalSold = JSON.parse(localStorage.getItem('totalSold')) || { qty: 0, money: 0 };
+    let title = localStorage.getItem('mainTitle') || "Inventory Manager";
+    let password = localStorage.getItem('editPassword') || null;
+    let isUnlocked = false;
+
+    document.getElementById('mainTitle').textContent = title;
+
+    function saveAll() {
+      localStorage.setItem('btcItems', JSON.stringify(items));
+      localStorage.setItem('totalSold', JSON.stringify(totalSold));
+      localStorage.setItem('mainTitle', title);
+      if (password) localStorage.setItem('editPassword', password);
+    }
+
+    function toggleLock() {
+      if (!password) {
+        const newPass = prompt("Set a new password for editing:");
+        if (!newPass) return alert("Password not set.");
+        password = newPass;
+        isUnlocked = true;
+        alert("Password created and edit mode unlocked.");
+      } else {
+        if (isUnlocked) {
+          isUnlocked = false;
+          alert("Locked editing mode.");
+        } else {
+          const entered = prompt("Enter password to unlock:");
+          if (entered === password) {
+            isUnlocked = true;
+            alert("Unlocked edit mode.");
+          } else {
+            alert("Incorrect password.");
+            return;
+          }
+        }
+      }
+      updateLockState();
+      saveAll();
+    }
+
+    function changePassword() {
+      const oldPass = prompt("Enter your current password:");
+      if (oldPass !== password) {
+        alert("Incorrect password!");
+        return;
+      }
+      const newPass = prompt("Enter new password:");
+      if (!newPass) return alert("Password not changed.");
+      password = newPass;
+      saveAll();
+      alert("Password updated successfully!");
+    }
+
+    function updateLockState() {
+      document.getElementById('editControls').style.display = isUnlocked ? 'block' : 'none';
+      document.getElementById('clearBtn').disabled = !isUnlocked;
+      document.getElementById('itemName').disabled = !isUnlocked;
+      document.getElementById('itemPrice').disabled = !isUnlocked;
+      document.getElementById('itemQty').disabled = !isUnlocked;
+    }
+
+    function updateTitle() {
+      const newTitle = document.getElementById('newTitle').value.trim();
+      if (!newTitle) return alert("Enter a valid title.");
+      title = newTitle;
+      document.getElementById('mainTitle').textContent = title;
+      saveAll();
+      document.getElementById('newTitle').value = '';
+    }
+
+    function addItem() {
+      if (!isUnlocked) return alert("Unlock edit mode to add items.");
+
+      const name = document.getElementById('itemName').value.trim();
+      const price = parseFloat(document.getElementById('itemPrice').value);
+      const qty = parseInt(document.getElementById('itemQty').value);
+
+      if (!name || isNaN(price) || isNaN(qty) || qty <= 0 || price <= 0) {
+        alert("Please enter valid item details!");
+        return;
+      }
+
+      const existingItem = items.find(item => item.name.toLowerCase() === name.toLowerCase());
+      if (existingItem) {
+        existingItem.qty += qty;
+        existingItem.price = price;
+      } else {
+        items.push({ name, price, qty });
+      }
+
+      saveAll();
+      clearInputs();
+      renderItems();
+    }
+
+    function clearInputs() {
+      document.getElementById('itemName').value = '';
+      document.getElementById('itemPrice').value = '';
+      document.getElementById('itemQty').value = '';
+    }
+
+    function renderItems() {
+      const list = document.getElementById('itemList');
+      const sell = document.getElementById('sellSection');
+      list.innerHTML = '';
+      sell.innerHTML = '';
+
+      if (items.length === 0) {
+        list.innerHTML = "<p>No items added yet.</p>";
+        sell.innerHTML = "<p>No items available to sell.</p>";
+        return;
+      }
+
+      items.forEach((item, index) => {
+        list.innerHTML += `
+          <div class="item">
+            <strong>${item.name}</strong><br>
+            Price: $${item.price.toFixed(2)} | Quantity: ${item.qty}
+          </div>
+        `;
+
+        sell.innerHTML += `
+          <div class="item">
+            <strong>${item.name}</strong> - $${item.price.toFixed(2)} (Qty: ${item.qty})<br>
+            <input type="number" id="sellQty${index}" placeholder="Quantity to sell" min="1" max="${item.qty}">
+            <button onclick="sellItem(${index})">Sell</button>
+          </div>
+        `;
+      });
+
+      updateStats();
+    }
+
+    function sellItem(index) {
+      const sellQty = parseInt(document.getElementById('sellQty' + index).value);
+
+      if (isNaN(sellQty) || sellQty <= 0) {
+        alert("Enter a valid quantity!");
+        return;
+      }
+
+      if (sellQty > items[index].qty) {
+        alert("Not enough stock!");
+        return;
+      }
+
+      const saleAmount = sellQty * items[index].price;
+      totalSold.qty += sellQty;
+      totalSold.money += saleAmount;
+
+      items[index].qty -= sellQty;
+      if (items[index].qty === 0) items.splice(index, 1);
+
+      saveAll();
+      renderItems();
+    }
+
+    function clearAll() {
+      if (!isUnlocked) return alert("Unlock edit mode to clear all items.");
+      if (confirm("Are you sure you want to delete all items?")) {
+        items = [];
+        saveAll();
+        renderItems();
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('totalQty').textContent = totalSold.qty;
+      document.getElementById('totalMoney').textContent = totalSold.money.toFixed(2);
+    }
+
+    // Initialize
+    updateLockState();
+    renderItems();
+  </script>
+</body>
+</html>
